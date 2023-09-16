@@ -33,3 +33,12 @@ target_sources(land15 PRIVATE
   ${SRC_COMMON}
   ${SRC_GFX}
   ${SRC_SDL})
+
+add_custom_command(TARGET land15 POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy_directory
+                       ${CMAKE_BINARY_DIR}/../res
+                       $<TARGET_FILE_DIR:land15>/res)
+add_custom_command(TARGET land15 POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E copy_directory
+                       ${CMAKE_BINARY_DIR}/../res 
+                       $<TARGET_FILE_DIR:land15>/../res)
