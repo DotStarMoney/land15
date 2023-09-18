@@ -167,7 +167,7 @@ class Land15 {
             goto land15_Land15_InitializeBoard_skip_morph_dilate;
           }
         }
-      land_mask[y * config.w + x] = false;
+        land_mask[y * config.w + x] = false;
       land15_Land15_InitializeBoard_skip_morph_dilate:
         continue;
       }
@@ -194,11 +194,15 @@ class Land15 {
       }
     }
 
+    // Redraw water to look like waves.
+    // Make water move only one pixel.
+    // Redraw trees as 1 tree.
+    // Redraw mountains as 1 rock.
+    // Shift sand down.
+
     // Add rocky outcrops
     // Throw down some trees
     // Add 2 settlements close to water on grass.
-
-
   }
 };
 
@@ -242,7 +246,7 @@ constexpr int kFps = 60;
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging(argv[0]);
 
-  land15::gfx::Gfx::Screen({640, 480});
+  land15::gfx::Gfx::Screen({640, 480}, true);
 
   land15::VisualLand15 sim({.w = 40,
                             .h = 30,
@@ -253,7 +257,8 @@ int main(int argc, char* argv[]) {
                             .island_warp_harmonic_amplitude = 0.1});
 
   int frame_counter = 0;
-  while (!land15::gfx::Gfx::Close()) {
+  while (!land15::gfx::Gfx::Close() ||
+         land15::gfx::Gfx::GetKeyPressed(land15::gfx::Gfx::kEscape)) {
     land15::gfx::Gfx::SyncInputs();
 
     sim.Draw(frame_counter++);
