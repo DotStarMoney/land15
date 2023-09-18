@@ -7,8 +7,8 @@ set(LOCAL_DIR ${CMAKE_CURRENT_LIST_DIR})
 groupSourceList(
   SRC_COMMON
   common 
-  "deleter_ptr.h"
-  "")
+  "deleter_ptr.h;random.h"
+  "random.cc")
 
 groupSourceList(
   SRC_GFX
