@@ -30,6 +30,7 @@ class Land15 {
     int island_warp_harmonics_n;
     float island_warp_harmonic_decay;
     float island_warp_harmonic_amplitude;
+    float rock_prob;
   };
 
   Land15(const Land15Config& config)
@@ -194,15 +195,19 @@ class Land15 {
       }
     }
 
-    // Redraw water to look like waves.
-    // Make water move only one pixel.
-    // Redraw trees as 1 tree.
-    // Redraw mountains as 1 rock.
-    // Shift sand down.
+    // Add some rocks.
+    for (int y = 1; y < config.h - 1; ++y) {
+      for (int x = 1; x < config.w - 1; ++x) {
+        if (common::rndd() >= config.rock_prob) continue;
+        if (board[y * config.w + x].state == Lulc::kWater) continue;
+        board[y * config.w + x].state = Lulc::kRock;
+      }
+    }
 
-    // Add rocky outcrops
-    // Throw down some trees
-    // Add 2 settlements close to water on grass.
+
+    // Randomly add rocks and trees, then grow them out with some probability
+    // Simulate with no humans for 1000 years.
+    // Add two settlements and go!
   }
 };
 
@@ -218,8 +223,9 @@ class VisualLand15 : public Land15 {
       for (int x = 0; x < config.w; ++x) {
         auto state = board[y * config.w + x].state;
         int x_offset = kLulcToDrawXOffset[static_cast<int>(state)] * kTileSize;
-        if (state == Lulc::kWater)
+        if (state == Lulc::kWater) {
           x_offset += (frame / kWaterAnimFrames) & 1 ? kTileSize : 0;
+        }
         gfx::Gfx::Put(*tiles_.get(), {x * kTileSize, y * kTileSize},
                       {x_offset, 0}, {x_offset + kTileSize - 1, kTileSize - 1});
       }
@@ -254,7 +260,8 @@ int main(int argc, char* argv[]) {
                             .island_river_aspect_p = 0.1,
                             .island_warp_harmonics_n = 2,
                             .island_warp_harmonic_decay = 0.75,
-                            .island_warp_harmonic_amplitude = 0.1});
+                            .island_warp_harmonic_amplitude = 0.1,
+                            .rock_prob = 0.04});
 
   int frame_counter = 0;
   while (!land15::gfx::Gfx::Close() ||
