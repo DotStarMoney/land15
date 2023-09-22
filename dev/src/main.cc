@@ -30,7 +30,9 @@ class Land15 {
     int island_warp_harmonics_n;
     float island_warp_harmonic_decay;
     float island_warp_harmonic_amplitude;
-    float rock_prob;
+    float island_rock_prob;
+    float island_tree_prob;
+    float island_grow_cycles;
   };
 
   Land15(const Land15Config& config)
@@ -195,17 +197,64 @@ class Land15 {
       }
     }
 
-    // Add some rocks.
+    // Add some rocks and trees.
     for (int y = 1; y < config.h - 1; ++y) {
       for (int x = 1; x < config.w - 1; ++x) {
-        if (common::rndd() >= config.rock_prob) continue;
-        if (board[y * config.w + x].state == Lulc::kWater) continue;
-        board[y * config.w + x].state = Lulc::kRock;
+        int offset = y * config.w + x;
+        if (board[offset].state == Lulc::kWater) continue;
+        if (common::rndd() < config.island_rock_prob) {
+          board[offset].state = Lulc::kRock;
+        } else if (common::rndd() < config.island_tree_prob) {
+          if (board[offset].state == Lulc::kSand) continue;
+          board[offset].state = Lulc::kTrees;
+        }
       }
     }
 
+    // Grow out the rocks and trees.
+    std::vector<Square> temp_state(config.w * config.h,
+                                   {.state = Lulc::kWater});
+    auto& prev_board = board;
+    auto& cur_board = temp_state;
+    for (int i = 0; i < config.island_grow_cycles; ++i) {
+      for (int y = 1; y < config.h - 1; ++y) {
+        for (int x = 1; x < config.w - 1; ++x) {
+          int offset = y * config.w + x;
+          cur_board[offset].state = prev_board[offset].state;
+          if (prev_board[offset].state == Lulc::kWater) continue;
 
-    // Randomly add rocks and trees, then grow them out with some probability
+          int tree_count = 0;
+          int rock_count = 0;
+          for (const auto& d : {glm::vec2{0, -1}, glm::vec2{1, 0},
+                                glm::vec2{0, 1}, glm::vec2{-1, 0}}) {
+            int ox = x + d.x;
+            int oy = y + d.y;
+            const auto& lulc = prev_board[oy * config.w + ox].state;
+            if (lulc == Lulc::kTrees) {
+              ++tree_count;
+            } else if (lulc == Lulc::kRock) {
+              ++rock_count;
+            }
+          }
+          Lulc type;
+          int count;
+          if (tree_count > rock_count) {
+            if (prev_board[offset].state == Lulc::kSand) continue;
+            type = Lulc::kTrees;
+            count = tree_count;
+          } else {
+            type = Lulc::kRock;
+            count = rock_count;
+          }
+          float p = static_cast<float>(count) / 4.0f;
+          if (common::rndd() >= p) continue;
+          cur_board[offset].state = type;
+        }
+      }
+      std::swap(cur_board, prev_board);
+    }
+    board = cur_board;
+
     // Simulate with no humans for 1000 years.
     // Add two settlements and go!
   }
@@ -261,7 +310,9 @@ int main(int argc, char* argv[]) {
                             .island_warp_harmonics_n = 2,
                             .island_warp_harmonic_decay = 0.75,
                             .island_warp_harmonic_amplitude = 0.1,
-                            .rock_prob = 0.04});
+                            .island_rock_prob = 0.01,
+                            .island_tree_prob = 0.1,
+                            .island_grow_cycles = 5});
 
   int frame_counter = 0;
   while (!land15::gfx::Gfx::Close() ||
