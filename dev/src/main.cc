@@ -33,6 +33,8 @@ class Land15 {
     float island_rock_prob;
     float island_tree_prob;
     float island_grow_cycles;
+    float island_height_offset;
+    float island_fixed_height_p;
   };
 
   Land15(const Land15Config& config)
@@ -256,9 +258,23 @@ class Land15 {
     board = cur_board;
   }
 
+  static constexpr int kHeightRelaxIterations = 200;
+  static constexpr int kHeightRelaxKernelWidth = 3;
+  static constexpr int kHeightRelaxKernelHeight = 3;
+  static constexpr float kHeightRelaxKernel[] = {
+      0.0625, 0.125, 0.0625, 0.125, 0.25, 0.125, 0.0625, 0.125, 0.0625};
+
   void InitFields() {
-    
-    // Translate this elevation code
+    std::vector<float> init_z(config.w * config.h, 0.0f);
+    for (int y = 0; y < config.h; ++y) {
+      for (int x = 0; x < config.w; ++x) {
+        float v = common::rndd();
+        float v_sign = 
+      }
+    }
+
+
+
 
     /*
     H = 30
@@ -268,7 +284,11 @@ class Land15 {
     ITERATIONS = 200
 
 
-    z = (np.random.normal(size=(H, W)) + Z_OFFSET)
+
+    z = np.random.uniform(size=(H, W), low=-1, high=1)
+    z_sign = np.sign(z)
+    z = (z ** 2) * z_sign + Z_OFFSET
+
     fixed_mask = (
         np.random.uniform(size=(H, W)) < FIXED_HEIGHT_P).astype(np.float32)
 
@@ -290,6 +310,9 @@ class Land15 {
 
     plt.imshow(field, vmin=-2, vmax=3)
     */
+    std::vector<bool> land_mask_temp(config.w * config.h, false);
+    
+
   }
 
   void InitializeBoard() {
@@ -357,7 +380,9 @@ int main(int argc, char* argv[]) {
                             .island_warp_harmonic_amplitude = 0.1,
                             .island_rock_prob = 0.01,
                             .island_tree_prob = 0.1,
-                            .island_grow_cycles = 5});
+                            .island_grow_cycles = 5,
+                            .island_height_offset = 1.0,
+                            .island_fixed_height_p = 0.05});
 
   int frame_counter = 0;
   while (!land15::gfx::Gfx::Close() ||
