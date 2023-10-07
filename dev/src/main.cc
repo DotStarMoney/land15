@@ -258,60 +258,68 @@ class Land15 {
     board = cur_board;
   }
 
-  static constexpr int kHeightRelaxIterations = 200;
-  static constexpr int kHeightRelaxKernelWidth = 3;
-  static constexpr int kHeightRelaxKernelHeight = 3;
-  static constexpr float kHeightRelaxKernel[] = {
+  static constexpr int kElevationRelaxIterations = 200;
+  static constexpr int kElevationRelaxKernelWidth = 3;
+  static constexpr int kElevationRelaxKernelHeight = 3;
+  static constexpr int kElevationRelaxKernelOffsetX = -1;
+  static constexpr int kElevationRelaxKernelOffsetY = -1;
+  static constexpr float kElevationScale = 75.0;
+  static constexpr float kElevationRelaxKernel[] = {
       0.0625, 0.125, 0.0625, 0.125, 0.25, 0.125, 0.0625, 0.125, 0.0625};
 
   void InitFields() {
     std::vector<float> init_z(config.w * config.h, 0.0f);
-    for (int y = 0; y < config.h; ++y) {
-      for (int x = 0; x < config.w; ++x) {
-        float v = common::rndd();
-        float v_sign = 
-      }
+    std::vector<float> fixed_mask(config.w * config.h, false);
+    for (int i = 0; i < init_z.size(); ++i) {
+      float v = common::rndd();
+      float v_sign = std::fabsf(v);
+      bool water = board[i].state == Lulc::kWater;
+      init_z[i] =
+          (v * v * v_sign + config.island_height_offset) * (water ? 0.0 : 1.0);
+      fixed_mask[i] = static_cast<float>(
+          (common::rndd() < config.island_fixed_height_p) || water);
     }
 
+    std::vector<float> z_temp(config.w * config.h * 2, 0.0f);
+    for (int i = 0; i < kElevationRelaxIterations; ++i) {
+      for (int y = 1; y < config.h - 1; ++y) {
+        for (int x = 1; x < config.w - 1; ++x) {
+          int offset = y * config.w + 1;
+          z_temp[offset * 2 + 1] =
+              (1.0 - fixed_mask[offset]) * z_temp[offset * 2] +
+              fixed_mask[offset] * init_z[offset];
 
-
+          int kernel_offset = 0;
+          float acc_z = 0.0f;
+          for (int dy = 0; dy < kElevationRelaxKernelHeight; ++dy) {
+            for (int dx = 0; dx < kElevationRelaxKernelWidth; ++dx) {
+              float k = kElevationRelaxKernel[kernel_offset++];
+              acc_z += z_temp[offset * 2 + 1 +
+                              ((dy + kElevationRelaxKernelOffsetY) * config.w) +
+                              (dx + kElevationRelaxKernelOffsetX)] *
+                       k;
+            }
+          }
+          z_temp[offset * 2] = acc_z;
+        }
+      }
+    }
+    for (int i = 0; i < board.size(); ++i) {
+      board[i].elevation = z_temp[2 * i] * kElevationScale;
+    }
 
     /*
-    H = 30
-    W = 40
-    Z_OFFSET = 1.0
-    FIXED_HEIGHT_P = 0.05
-    ITERATIONS = 200
-
-
-
-    z = np.random.uniform(size=(H, W), low=-1, high=1)
-    z_sign = np.sign(z)
-    z = (z ** 2) * z_sign + Z_OFFSET
-
-    fixed_mask = (
-        np.random.uniform(size=(H, W)) < FIXED_HEIGHT_P).astype(np.float32)
-
-    xy = (np.stack((
-        np.tile(np.arange(H)[..., np.newaxis], (1, W)),
-        np.tile(np.arange(W)[np.newaxis, ...], (H, 1))), axis=-1
-    ) / np.array([[[H, W]]]) - np.array([[[0.5, 0.5]]])) * 2.0
-    circle_mask = ((xy[..., 0] ** 2 + xy[..., 1] ** 2) <= 0.5).astype(np.float32)
-
-    z *= circle_mask
-    fixed_mask = ((fixed_mask + (1.0 - circle_mask)) >= 1.0).astype(np.float32)
-
-    field = z * fixed_mask
-    kernel = np.array([[1, 2, 1], [2, 4, 2], [1, 2, 1]], np.float32) / 16.0
-
-    for _ in range(ITERATIONS):
-      field = (1.0 - fixed_mask) * field + fixed_mask * z
-      field = signal.convolve(field, kernel, mode='same')
-
-    plt.imshow(field, vmin=-2, vmax=3)
-    */
-    std::vector<bool> land_mask_temp(config.w * config.h, false);
+    Populate these
     
+    bool burning;
+    float temperature;
+    float humidity;
+    float inundation;
+    float nutrients;
+    float pollution;
+    float biomass;
+    
+    */
 
   }
 
