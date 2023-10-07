@@ -65,7 +65,7 @@ class Land15 {
     float inundation;
     float nutrients;
     float pollution;
-    float fuel;
+    float biomass;
   };
 
   std::vector<Square> board;
@@ -79,7 +79,7 @@ class Land15 {
 
   static constexpr float kIslandHarmonicAmplitudeMin = 0.2;
 
-  void InitializeBoard() {
+  void InitState() {
     std::vector<bool> land_mask(config.w * config.h, false);
 
     // Create a land mask with a river running through it.
@@ -254,6 +254,51 @@ class Land15 {
       std::swap(cur_board, prev_board);
     }
     board = cur_board;
+  }
+
+  void InitFields() {
+    
+    // Translate this elevation code
+
+    /*
+    H = 30
+    W = 40
+    Z_OFFSET = 1.0
+    FIXED_HEIGHT_P = 0.05
+    ITERATIONS = 200
+
+
+    z = (np.random.normal(size=(H, W)) + Z_OFFSET)
+    fixed_mask = (
+        np.random.uniform(size=(H, W)) < FIXED_HEIGHT_P).astype(np.float32)
+
+    xy = (np.stack((
+        np.tile(np.arange(H)[..., np.newaxis], (1, W)),
+        np.tile(np.arange(W)[np.newaxis, ...], (H, 1))), axis=-1
+    ) / np.array([[[H, W]]]) - np.array([[[0.5, 0.5]]])) * 2.0
+    circle_mask = ((xy[..., 0] ** 2 + xy[..., 1] ** 2) <= 0.5).astype(np.float32)
+
+    z *= circle_mask
+    fixed_mask = ((fixed_mask + (1.0 - circle_mask)) >= 1.0).astype(np.float32)
+
+    field = z * fixed_mask
+    kernel = np.array([[1, 2, 1], [2, 4, 2], [1, 2, 1]], np.float32) / 16.0
+
+    for _ in range(ITERATIONS):
+      field = (1.0 - fixed_mask) * field + fixed_mask * z
+      field = signal.convolve(field, kernel, mode='same')
+
+    plt.imshow(field, vmin=-2, vmax=3)
+    */
+  }
+
+  void InitializeBoard() {
+    InitState();   
+    InitFields();
+
+    //
+    // Set initial values for stuff
+    //
 
     // Simulate with no humans for 1000 years.
     // Add two settlements and go!
