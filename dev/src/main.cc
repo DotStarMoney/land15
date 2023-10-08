@@ -268,6 +268,8 @@ class Land15 {
       0.0625, 0.125, 0.0625, 0.125, 0.25, 0.125, 0.0625, 0.125, 0.0625};
 
   void InitFields() {
+
+    // Create elevation surface.
     std::vector<float> init_z(config.w * config.h, 0.0f);
     std::vector<float> fixed_mask(config.w * config.h, false);
     for (int i = 0; i < init_z.size(); ++i) {
@@ -304,22 +306,24 @@ class Land15 {
         }
       }
     }
+
+    // Populate default field values.
     for (int i = 0; i < board.size(); ++i) {
       board[i].elevation = z_temp[2 * i] * kElevationScale;
-    }
+      board[i].burning = false;
+      board[i].pollution = 0.0;
+      
 
-    /*
-    Populate these
-    
-    bool burning;
-    float temperature;
-    float humidity;
-    float inundation;
-    float nutrients;
-    float pollution;
-    float biomass;
-    
-    */
+      /*
+
+      float temperature;
+      float humidity;
+      float inundation;
+      float nutrients;
+      float biomass;
+
+      */
+    }
 
   }
 
