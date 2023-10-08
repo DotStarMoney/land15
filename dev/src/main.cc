@@ -39,7 +39,9 @@ class Land15 {
 
   Land15(const Land15Config& config)
       : config(config),
-        board(config.w * config.h, Square{.state = Lulc::kWater}) {
+        board_a(config.w * config.h, Square{.state = Lulc::kWater}),
+        board_b(config.w * config.h, Square{.state = Lulc::kWater}),
+        parity(true) {
     InitializeBoard();
   }
 
@@ -57,20 +59,63 @@ class Land15 {
     kBare = 10
   };
 
+  void AdvanceDay() {
+    auto src_board_ptr = &board_a;
+    auto dst_board_ptr = &board_b;
+    if (!parity) std::swap(src_board_ptr, dst_board_ptr);
+    auto& src_board = *src_board_ptr;
+    auto& dst_board = *dst_board_ptr;
+
+    int cell_offset = config.w + 1;
+    for (int y = 1; y < (config.h - 1); ++y) {
+      for (int x = 1; x < (config.w - 1); ++x) {
+        switch (src_board[cell_offset].state) {
+          case Lulc::kTrees: {
+            break;
+          }
+          default:
+            // Nothing happens.
+        }
+
+        // Strike lightning maybe.
+        // Add up humidity, maybe start rain.
+
+        ++cell_offset;
+      }
+      cell_offset += config.w + 2;
+    }
+  }
+
  protected:
   struct Square {
     Lulc state;
     bool burning;
+
+    // In meters.
     float elevation;
+
+    // In celcius.
     float temperature;
+
+    // Absolute humidity in g/m^3.
     float humidity;
+
+    // Absolute below-ground water density g/m^3.
     float inundation;
+
+    // Soil nutrients (N, K, P) in g/m^3 (same as PPM).
     float nutrients;
+
+    // Noxious particulate matter in g/m^3 (same as PPM).
     float pollution;
+
+    // Above ground carbon in g/m^2.
     float biomass;
   };
 
-  std::vector<Square> board;
+  std::vector<Square> board_a;
+  std::vector<Square> board_b;
+  bool parity;
   const Land15Config config;
 
  private:
@@ -195,7 +240,7 @@ class Land15 {
         }
       land15_Land15_InitializeBoard_skip_init_board_sand:
 
-        board[y * config.w + x].state = square_state;
+        board_a[y * config.w + x].state = square_state;
       }
     }
 
@@ -203,12 +248,12 @@ class Land15 {
     for (int y = 1; y < config.h - 1; ++y) {
       for (int x = 1; x < config.w - 1; ++x) {
         int offset = y * config.w + x;
-        if (board[offset].state == Lulc::kWater) continue;
+        if (board_a[offset].state == Lulc::kWater) continue;
         if (common::rndd() < config.island_rock_prob) {
-          board[offset].state = Lulc::kRock;
+          board_a[offset].state = Lulc::kRock;
         } else if (common::rndd() < config.island_tree_prob) {
-          if (board[offset].state == Lulc::kSand) continue;
-          board[offset].state = Lulc::kTrees;
+          if (board_a[offset].state == Lulc::kSand) continue;
+          board_a[offset].state = Lulc::kTrees;
         }
       }
     }
@@ -216,7 +261,7 @@ class Land15 {
     // Grow out the rocks and trees.
     std::vector<Square> temp_state(config.w * config.h,
                                    {.state = Lulc::kWater});
-    auto& prev_board = board;
+    auto& prev_board = board_a;
     auto& cur_board = temp_state;
     for (int i = 0; i < config.island_grow_cycles; ++i) {
       for (int y = 1; y < config.h - 1; ++y) {
@@ -255,7 +300,7 @@ class Land15 {
       }
       std::swap(cur_board, prev_board);
     }
-    board = cur_board;
+    board_a = cur_board;
   }
 
   static constexpr int kElevationRelaxIterations = 200;
@@ -263,19 +308,26 @@ class Land15 {
   static constexpr int kElevationRelaxKernelHeight = 3;
   static constexpr int kElevationRelaxKernelOffsetX = -1;
   static constexpr int kElevationRelaxKernelOffsetY = -1;
-  static constexpr float kElevationScale = 75.0;
+  static constexpr float kElevationScale = 1000.0;
   static constexpr float kElevationRelaxKernel[] = {
       0.0625, 0.125, 0.0625, 0.125, 0.25, 0.125, 0.0625, 0.125, 0.0625};
 
-  void InitFields() {
+  static constexpr float kInitTemperature = 22;       // C
+  static constexpr float kInitHumidity = 10;          // g/m^3
+  static constexpr float kInitInundation = 10e3;      // g/m^3
+  static constexpr float kInitPollution = 0;          // g/m^3 = ppm
+  static constexpr float kInitNutrientsPlants = 200;  // g/m^3 = ppm
+  static constexpr float kInitBiomassTrees = 500;     // g/m^2
+  static constexpr float kInitBiomassGrass = 10;      // g/m^2
 
+  void InitFields() {
     // Create elevation surface.
     std::vector<float> init_z(config.w * config.h, 0.0f);
     std::vector<float> fixed_mask(config.w * config.h, false);
     for (int i = 0; i < init_z.size(); ++i) {
       float v = common::rndd();
       float v_sign = std::fabsf(v);
-      bool water = board[i].state == Lulc::kWater;
+      bool water = board_a[i].state == Lulc::kWater;
       init_z[i] =
           (v * v * v_sign + config.island_height_offset) * (water ? 0.0 : 1.0);
       fixed_mask[i] = static_cast<float>(
@@ -308,34 +360,34 @@ class Land15 {
     }
 
     // Populate default field values.
-    for (int i = 0; i < board.size(); ++i) {
-      board[i].elevation = z_temp[2 * i] * kElevationScale;
-      board[i].burning = false;
-      board[i].pollution = 0.0;
-      
-
-      /*
-
-      float temperature;
-      float humidity;
-      float inundation;
-      float nutrients;
-      float biomass;
-
-      */
+    for (int i = 0; i < board_a.size(); ++i) {
+      board_a[i].burning = false;
+      board_a[i].elevation = z_temp[2 * i] * kElevationScale;
+      board_a[i].temperature = kInitTemperature;
+      board_a[i].humidity = kInitHumidity;
+      board_a[i].inundation = kInitInundation;
+      board_a[i].pollution = kInitPollution;
+      auto state = board_a[i].state;
+      if ((state == Lulc::kTrees) || (state == Lulc::kGrass)) {
+        board_a[i].nutrients = kInitNutrientsPlants;
+        board_a[i].biomass =
+            (state == Lulc::kTrees) ? kInitBiomassTrees : kInitBiomassGrass;
+      } else {
+        board_a[i].nutrients = 0.0;
+        board_a[i].biomass = 0.0;
+      }
     }
-
   }
 
+  static constexpr int kWarmUpDays = 3650;  // 10 years.
+
   void InitializeBoard() {
-    InitState();   
+    InitState();
     InitFields();
+    for (int i = 0; i < kWarmUpDays; ++i) {
+      AdvanceDay();
+    }
 
-    //
-    // Set initial values for stuff
-    //
-
-    // Simulate with no humans for 1000 years.
     // Add two settlements and go!
   }
 };
@@ -348,6 +400,7 @@ class VisualLand15 : public Land15 {
       : Land15(config), tiles_(gfx::Image::FromFile(kTileImageFilename)) {}
 
   void Draw(int frame) const {
+    auto& board = parity ? board_a : board_b;
     for (int y = 0; y < config.h; ++y) {
       for (int x = 0; x < config.w; ++x) {
         auto state = board[y * config.w + x].state;
