@@ -35,6 +35,15 @@ class Land15 {
     float island_grow_cycles;
     float island_height_offset;
     float island_fixed_height_p;
+    float flood_inundation_threshold;
+    float tree_min_biomass;
+    float tree_min_inundation;
+    float tree_burn_rate;
+    float tree_burning_biomass_nutrient_conversion;
+    float tree_harvest_biomass_nutrient_conversion;
+    float tree_harvest_min_biomass;
+    float tree_harvest_chance_high_built_increase;
+    float tree_harvest_chance_low_built_increase;
   };
 
   Land15(const Land15Config& config)
@@ -69,13 +78,106 @@ class Land15 {
     int cell_offset = config.w + 1;
     for (int y = 1; y < (config.h - 1); ++y) {
       for (int x = 1; x < (config.w - 1); ++x) {
+        Lulc dst_state;
+
+        float dst_nutrients;
+        float dst_biomass;
+
         switch (src_board[cell_offset].state) {
           case Lulc::kTrees: {
+            bool cool_off;
+            bool pump_water;
+            if (src_board[cell_offset].burning) {
+              // Burning.
+              dst_biomass = src_board[cell_offset].biomass *
+                            (1.0 - config.tree_burn_rate);
+              float delta_biomass =
+                  src_board[cell_offset].biomass * config.tree_burn_rate;
+              dst_nutrients =
+                  src_board[cell_offset].nutrients +
+                  delta_biomass *
+                      config.tree_burning_biomass_nutrient_conversion;
+              cool_off = false;
+              pump_water = true;
+            } else if (src_board[cell_offset].inundation >
+                       config.flood_inundation_threshold) {
+              // Flooding.
+
+              cool_off = true;
+              pump_water = true;
+            } else if (src_board[cell_offset].inundation <
+                       config.tree_min_inundation) {
+              // Drought.
+
+              cool_off = true;
+              pump_water = false;
+            } else {
+              cool_off = true;
+              pump_water = true;
+            }
+
+            // Natural tree death: floods, fires, or drought killed it.
+            if (src_board[cell_offset].biomass < config.tree_min_biomass) {
+              dst_state = Lulc::kBare;
+              dst_nutrients = src_board[cell_offset].nutrients;
+              dst_biomass = config.tree_min_biomass;
+              break;
+            }
+
+            // Harvest won't happen if it's not safe.
+            if (cool_off && pump_water) {
+              float harvest_p = 0.0f;
+              // Trees can get harvested based on proximity to built area.
+              if (src_board[cell_offset - 1].state == Lulc::kLowBuilt) {
+                harvest_p += config.tree_harvest_chance_low_built_increase;
+              } else if (src_board[cell_offset - 1].state == Lulc::kHighBuilt) {
+                harvest_p += config.tree_harvest_chance_high_built_increase;
+              }
+              if (src_board[cell_offset + 1].state == Lulc::kLowBuilt) {
+                harvest_p += config.tree_harvest_chance_low_built_increase;
+              } else if (src_board[cell_offset + 1].state == Lulc::kHighBuilt) {
+                harvest_p += config.tree_harvest_chance_high_built_increase;
+              }
+              if (src_board[cell_offset - config.w].state == Lulc::kLowBuilt) {
+                harvest_p += config.tree_harvest_chance_low_built_increase;
+              } else if (src_board[cell_offset - config.w].state ==
+                         Lulc::kHighBuilt) {
+                harvest_p += config.tree_harvest_chance_high_built_increase;
+              }
+              if (src_board[cell_offset + config.w].state == Lulc::kLowBuilt) {
+                harvest_p += config.tree_harvest_chance_low_built_increase;
+              } else if (src_board[cell_offset + config.w].state ==
+                         Lulc::kHighBuilt) {
+                harvest_p += config.tree_harvest_chance_high_built_increase;
+              }
+
+              // Tree gets cut, taking its biomass and nutrients with it.
+              if (common::rndd() < harvest_p) {
+                dst_state = Lulc::kBare;
+                dst_nutrients =
+                    config.tree_harvest_biomass_nutrient_conversion *
+                    src_board[cell_offset].biomass;
+                dst_biomass = config.tree_harvest_min_biomass;
+                break;
+              }
+            }
+
+            // Tree will pump water if not drought stricken.
+            if (pump_water) {
+            }
+
+            // Tree will cool down cell if not burning.
+            if (cool_off) {
+            }
+
+            // No transition.
+            dst_state = Lulc::kTrees;
             break;
           }
           default:
-            // Nothing happens.
+            dst_state = src_board[cell_offset].state;
         }
+        dst_board[cell_offset].state = dst_state;
 
         // Strike lightning maybe.
         // Add up humidity, maybe start rain.
@@ -103,11 +205,11 @@ class Land15 {
     // Absolute below-ground water density g/m^3.
     float inundation;
 
-    // Soil nutrients (N, K, P) in g/m^3 (same as PPM).
-    float nutrients;
-
     // Noxious particulate matter in g/m^3 (same as PPM).
     float pollution;
+
+    // Soil nutrients (N, K, P) in g/m^3 (same as PPM).
+    float nutrients;
 
     // Above ground carbon in g/m^2.
     float biomass;
