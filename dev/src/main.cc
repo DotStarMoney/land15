@@ -39,6 +39,8 @@ class Land15 {
     float tree_min_biomass;
     float tree_min_inundation;
     float tree_burn_rate;
+    float tree_flood_damage_rate;
+    float tree_drought_damage_rate;
     float tree_burning_biomass_nutrient_conversion;
     float tree_harvest_biomass_nutrient_conversion;
     float tree_harvest_min_biomass;
@@ -89,6 +91,8 @@ class Land15 {
             bool pump_water;
             if (src_board[cell_offset].burning) {
               // Burning.
+
+              // Deposit biomass into the soil.
               dst_biomass = src_board[cell_offset].biomass *
                             (1.0 - config.tree_burn_rate);
               float delta_biomass =
@@ -103,12 +107,21 @@ class Land15 {
                        config.flood_inundation_threshold) {
               // Flooding.
 
+              // Biomass and nutrients are washed away.
+              dst_biomass = src_board[cell_offset].biomass *
+                            (1.0 - config.tree_flood_damage_rate);
+              dst_nutrients = src_board[cell_offset].nutrients *
+                              (1.0 - config.tree_flood_damage_rate);
               cool_off = true;
               pump_water = true;
             } else if (src_board[cell_offset].inundation <
                        config.tree_min_inundation) {
               // Drought.
 
+              // Biomass depletes, nutrients stay the same.
+              dst_biomass = src_board[cell_offset].biomass *
+                            (1.0 - config.tree_drought_damage_rate);
+              dst_nutrients = src_board[cell_offset].nutrients;
               cool_off = true;
               pump_water = false;
             } else {
@@ -180,6 +193,8 @@ class Land15 {
         dst_board[cell_offset].state = dst_state;
 
         // Strike lightning maybe.
+        // Catch fire maybe if adjacent on fire.
+        // 
         // Add up humidity, maybe start rain.
 
         ++cell_offset;
