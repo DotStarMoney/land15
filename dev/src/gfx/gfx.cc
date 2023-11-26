@@ -121,7 +121,10 @@ void Gfx::SetFullscreen(bool fullscreen) {
 ivec2 Gfx::GetResolution() {
   CheckInit(__func__);
   ivec2 res;
-  SDL_GetWindowSize(window_.get(), &res.x, &res.y);
+  SDL_RendererLogicalPresentation unused_mode;
+  SDL_ScaleMode unused_scale_mode;
+  SDL_GetRenderLogicalPresentation(renderer_.get(), &res.x, &res.y,
+                                   &unused_mode, &unused_scale_mode);
   return res;
 }
 

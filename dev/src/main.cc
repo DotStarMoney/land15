@@ -77,12 +77,12 @@ class Snowscreen {
 }  // namespace
 
 constexpr int kFps = 60;
-constexpr int kBaseFlakeCount = 2000;
+constexpr int kBaseFlakeCount = 500;
 
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging(argv[0]);
 
-  gfx::Gfx::Screen({320, 200}, false, "It's Snowtime!", {640, 400});
+  gfx::Gfx::Screen({320, 200}, true, "It's Snowtime!", {640, 400});
 
   auto bg = gfx::Image::FromFile(kBackgroundFilename);
   auto flakes = gfx::Image::FromFile(kFlakesFilename);
